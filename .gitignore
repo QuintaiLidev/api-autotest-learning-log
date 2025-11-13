@@ -1,0 +1,20 @@
+# Python 编译缓存
+__pycache__/
+*.pyc
+
+# 虚拟环境
+venv/
+
+# PyCharm 配置
+.idea/
+*.iml
+
+# pytest 缓存
+.pytest_cache/
+
+# 报告 & 日志
+reports/
+logs/
+
+# 其他临时文件
+.DS_Store
