@@ -13,7 +13,7 @@
 - 新建 `test_login_with_token.py`：
   - 使用 `get_token` 作为入参
   - 把 token 放进请求头 Authorization 中
-  - 通过 httpbin 的回显验证请求头是否正确传递
+  - 通过 postman-echo 的回显验证请求头是否正确传递
 
 ---
 

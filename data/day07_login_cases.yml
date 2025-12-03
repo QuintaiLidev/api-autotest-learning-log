@@ -1,0 +1,11 @@
+- name: "正常请求 /get 带查询参数"
+  path: "/get"
+  params:
+    username: "test_user"
+    password: "123456"
+  expected_status: 200
+
+- name: "正常请求 /headers 不带参数"
+  path: "/headers"
+  params: {}
+  expected_status: 200

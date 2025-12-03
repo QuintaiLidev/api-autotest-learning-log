@@ -1,0 +1,12 @@
+# 默认使用的环境
+default_env: dev
+
+# 不同环境的配置
+envs:
+  dev:
+    base_url: "https://postman-echo.com"
+    timeout: 10
+
+  staging:
+    base_url: "https://postman-echo.com"
+    timeout: 5

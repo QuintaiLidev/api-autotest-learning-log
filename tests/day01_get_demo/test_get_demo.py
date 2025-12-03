@@ -1,17 +1,21 @@
-import requests
 import pytest
+from autofw.utils.api_client import APIClient
 
+client = APIClient(base_url="https://postman-echo.com", timeout=5)
+
+
+@pytest.mark.smoke  # ✅ 给这个用例打一个 “smoke” 标签
+@pytest.mark.api  # ✅ 再打一个 “api” 标签
 def test_get_demo():
-    #①使用公共API
-    url = "https://httpbin.org/get"
 
-    #②发起请求
-    response = requests.get(url)
+    # 发起请求
+    response = client.get("/get")
 
-    #③打印响应内容
+    # 打印响应内容
     print("Status_Code:", response.status_code)
     print("Response body:", response.json())
 
-    #④验证响应
+    # ④验证响应
     assert response.status_code == 200
-    assert "url" in response.json()
+    data = response.json()
+    assert "headers" in data

@@ -1,0 +1,24 @@
+- name: GET_基本查询
+  method: GET
+  path: /get
+  params:
+    foo: bar
+    page: "1"
+  expected_status: 200
+  expect_echo: args
+
+- name: POST_JSON简单
+  method: POST
+  path: /post
+  json:
+    username: tom
+    age: 20
+  expected_status: 200
+  expected_echo: json
+
+- name: POST_JSON_空body
+  method: POST
+  path: /post
+  json: {}
+  expected_status: 200
+  expect_echo: json

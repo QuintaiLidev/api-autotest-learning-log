@@ -1,0 +1,35 @@
+# data/day10_unified_cases.yml
+
+# 用统一的结构，既包含 GET 用例，也包含 POST 用例，
+# 并附上 expected_subset 用于部分字段断言。
+
+- name: "GET 带查询参数，校验 args 回显"
+  method: "GET"
+  path: "/get"
+  params:
+    foo: "bar"
+    page: "1"
+  expected_status: 200
+  expected_subset:
+    args:
+      foo: "bar"
+      page: "1"
+
+- name:  "POST JSON，校验部分字段回显"
+  method: "POST"
+  path: "/post"
+  json:
+    username: "day10_user"
+    password: "123456"
+  expected_status: 200
+  expected_subset:
+    # 这里只关心用户名是否被原样回显，密码就不管了
+    json:
+      username: "day10_user"
+
+- name: "POST 空 JSON，仅校验状态码不过 body"
+  method: "POST"
+  path: "/post"
+  json: {}
+  expected_status: 200
+  # 不写 expected_subset，表示我只关心状态码
