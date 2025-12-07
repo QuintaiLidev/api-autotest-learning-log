@@ -1,6 +1,7 @@
 # tests/day10_advanced_assertions/test_advanced_assertions.py
 
 import pytest
+import requests
 
 from autofw.utils.data_loader import load_yaml
 from autofw.utils.assertions import assert_status_code, assert_dict_contains
@@ -34,13 +35,17 @@ def test_unified_with_advanced_assertions(client, case):
     expected_status = case["expected_status"]
     expected_subset = case.get("expected_subset") or {}
 
-    # 1. 发送请求
-    if method == "GET":
-        resp = client.get(path, params=params)
-    elif method == "POST":
-        resp = client.post(path, json=json_body)
-    else:
-        pytest.skip(f"暂不支持的方法: {method}")
+    # 1. 发送请求(增加网络异常保护)
+    try:
+        if method == "GET":
+            resp = client.get(path, params=params)
+        elif method == "POST":
+            resp = client.post(path, json=json_body)
+        else:
+            pytest.skip(f"暂不支持的方法: {method}")
+    except requests.exceptions.RequestException as e:
+        # ✅ 如果是公司网络/防火墙/外网问题，就优雅地跳过，不算你代码挂
+        pytest.skip(f"网络异常，跳过本用例: {e}")
 
     # 2. 统一断言状态码
     assert_status_code(resp, expected_status)

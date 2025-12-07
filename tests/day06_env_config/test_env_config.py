@@ -3,6 +3,7 @@ Day06：环境配置 & pytest 标记练习
 """
 
 import pytest
+import requests
 
 from autofw.utils.config_loader import load_config
 
@@ -37,6 +38,11 @@ def test_client_get_works_with_config(client):
     验证 client 使用配置里的 base_url，能正常访问 /get
     注意：这个用例需要访问 postman-echo，因此打 external 标记
     """
+
+    # ✅ 关键：关闭环境代理，和我们的 APIClient 行为保持一致
+    session = requests.Session()
+    session.trust_env = False
+
     resp = client.get("get", params={"foo": "bar"})
     assert resp.status_code == 200
     data = resp.json()

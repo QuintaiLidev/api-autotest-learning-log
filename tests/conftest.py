@@ -3,6 +3,7 @@ import pytest
 import os
 import sys
 
+
 @pytest.fixture(autouse=True)
 def disable_proxies(monkeypatch):
     """对每个用例自动清理环境代理变量，避免requests走系统/代理。"""
@@ -21,21 +22,28 @@ import sys, importlib.util, pathlib
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+AUTOFW_ROOT = PROJECT_ROOT / "autofw"
 
-from autofw.utils.api_client import APIClient
 from autofw.utils.config_loader import load_config
 
-API_CLIENT_PATH = PROJECT_ROOT / "autofw" / "api_client.py"
-spec = importlib.util.spec_from_file_location("my_api_client", str(API_CLIENT_PATH))
+API_CLIENT_PATH = PROJECT_ROOT / "autofw" / "utils" / "api_client.py"
+# 动态加载 autofw.utils.api_client 模块
+spec = importlib.util.spec_from_file_location(
+    "autofw.utils.api_client",
+    AUTOFW_ROOT / "utils" / "api_client.py")  # 如果你的 api_client 路径不同，按实际改
 api_client = importlib.util.module_from_spec(spec)
 assert spec and spec.loader, f"Cannot load spec from {API_CLIENT_PATH}"
+# ✅ 一定要先把模块注册进 sys.modules
+sys.modules["autofw.utils.api_client"] = api_client
+# 然后再执行模块代码，这时 @dataclass 才能在 sys.modules 里找到自己
 spec.loader.exec_module(api_client)
 APIClient = api_client.APIClient
 # -------------------------------------------------------
 
 import pytest
 import requests
-from autofw.utils.api_client import APIClient
+from autofw.api_client import APIClient
+from autofw.services.demo_echo_service import EchoService
 
 
 @pytest.fixture(scope="function")
@@ -89,7 +97,7 @@ def client(disable_proxies) -> APIClient:
     print(f"[Fixture] 使用环境: {cfg['env']} | base_url={cfg['base_url']}")
     return APIClient(
         base_url=cfg["base_url"],
-        timeout=cfg["timeout"],)
+        timeout=cfg["timeout"], )
 
 
 @pytest.fixture(scope="session")
@@ -99,3 +107,13 @@ def get_token() -> str:
     真实项目会在这里调用登录接口拿到token并返回。
     """
     return "test_user_fake_token"
+
+
+@pytest.fixture
+def echo_service(client: APIClient):
+    """
+    基于通用 client 构造一个 EchoService，给 Service 层用例复用。
+    """
+    from autofw.services.demo_echo_service import EchoService
+    return EchoService(client)
+

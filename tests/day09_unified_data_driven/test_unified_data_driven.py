@@ -1,6 +1,6 @@
 import pytest
 from autofw.utils.data_loader import load_yaml
-
+import requests
 # 1)启动时一习性把 YAML 用例读进来
 cases = load_yaml("day09_unified_cases.yml")
 
