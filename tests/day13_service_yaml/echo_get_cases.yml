@@ -1,0 +1,30 @@
+# tests/day13_service_yaml/echo_get_cases.yml
+- id: "foo=bar,page=1"
+  params:
+    foo: "bar"
+    page: "1"
+  expected_code: 200
+  expected_subset:
+    args:
+      foo: "bar"
+      page: "1"
+
+- id: "foo=baz,page=1"
+  params:
+    foo: "baz"
+    page: "2"
+  expected_code: 200
+  expected_subset:
+    args:
+      foo: "baz"
+      page: "2"
+
+- id: "search=api,limit=10"
+  params:
+    foo: "api"
+    page: "10"
+  expected_code: 200
+  expected_subset:
+    args:
+      foo: "api"
+      page: "10"
