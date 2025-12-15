@@ -84,7 +84,7 @@ def get_token():
     print("[Fixture] 测试结束，清理token（这里暂时只是打印）")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def client(disable_proxies) -> APIClient:
     """
     提供一个全局可复用的 API 客户端（session 级别：整个测试周期仅初始化一次）。
@@ -97,7 +97,22 @@ def client(disable_proxies) -> APIClient:
     print(f"[Fixture] 使用环境: {cfg['env']} | base_url={cfg['base_url']}")
     return APIClient(
         base_url=cfg["base_url"],
-        timeout=cfg["timeout"], )
+        timeout=cfg["timeout", 20],
+        retries=cfg.get("retries", 2),
+        backoff=cfg.get("backoff", 0.5),
+    )
+
+
+@pytest.fixture(scope="session")
+def network_client(client: APIClient) -> APIClient:
+    # 外网用更耐心的配置，不污染默认 client
+    return client.__class__(
+        base_url=client.base_url,
+        timeout=max(client.timeout, 30),
+        session=client.session,
+        retries=max(getattr(client, "retries", 2), 3),
+        backoff=max(getattr(client, "backoff", 0.5), 1.0)
+    )
 
 
 @pytest.fixture(scope="session")
@@ -116,4 +131,3 @@ def echo_service(client: APIClient):
     """
     from autofw.services.demo_echo_service import EchoService
     return EchoService(client)
-

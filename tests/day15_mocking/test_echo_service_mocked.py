@@ -16,14 +16,15 @@ def test_echo_get_with_params_mocked(echo_service, monkeypatch):
     """
     captured = {}
 
-    def fake_get(url, params=None, timeout=None, **kwargs):
+    def fake_request(method, url, params=None, timeout=None, **kwargs):
+        captured["method"] = method
         captured["url"] = url
         captured["params"] = params
         body = {"args": params or {}, "url": url}
         return build_response(200, body, url=url)
 
     # 只替换当前 client.session.get，不影响全局
-    monkeypatch.setattr(echo_service.client.session, "get", fake_get)
+    monkeypatch.setattr(echo_service.client.session, "request", fake_request)
 
     params = {"foo": "bar3", "page": "1"}
     resp = echo_service.get_with_params(params)
@@ -31,6 +32,7 @@ def test_echo_get_with_params_mocked(echo_service, monkeypatch):
     assert_status_code(resp, 200)
     assert_dict_contains(resp.json(), {"args": params})
 
+    assert "url" in captured, "mock 没命中：说明请求没有走到 session.request"
     assert captured["url"].endswith("/get")
 
 
@@ -41,7 +43,7 @@ def test_echo_post_json_mocked(echo_service, monkeypatch):
     Mock 掉 HTTP POST，验证路径断言 assert_json_value 在“真实业务用例”里的写法。
     """
 
-    def fake_post(url, json=None, data=None, timeout=None, **kwargs):
+    def fake_request(method, url, json=None, data=None, timeout=None, **kwargs):
         body = {
             "json": json,  # 模拟postman-echo 的回显结构
             "data": json,
@@ -49,7 +51,7 @@ def test_echo_post_json_mocked(echo_service, monkeypatch):
         }
         return build_response(200, body, url=url)
 
-    monkeypatch.setattr(echo_service.client.session, "post", fake_post)
+    monkeypatch.setattr(echo_service.client.session, "request", fake_request)
 
     payload = {"user": {"id": 10086, "name": "Quintai-Li"}, "meta": {"env": "dev", "page": 1}}
     resp = echo_service.post_json(payload)

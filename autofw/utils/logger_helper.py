@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # 日志目录：.../pythonProject/logs
 LOG_DIR = PROJECT_ROOT / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def get_logger(name: str = "autofw") -> logging.Logger:
@@ -25,6 +25,7 @@ def get_logger(name: str = "autofw") -> logging.Logger:
         return logger
 
     logger.setLevel(logging.INFO)
+    logger.propagate = False
 
     # 日志格式：时间 等级 模块名 - 消息
     fmt = logging.Formatter(
