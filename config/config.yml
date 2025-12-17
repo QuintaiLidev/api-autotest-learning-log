@@ -6,6 +6,8 @@ envs:
   dev:
     base_url: "https://postman-echo.com"
     timeout: 20
+    retries: 2
+    backoff: 0.5
 
   staging:
     base_url: "https://postman-echo.com"

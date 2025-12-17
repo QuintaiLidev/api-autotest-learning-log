@@ -3,17 +3,28 @@ import pytest
 import os
 import sys
 
+PROXY_KEYS = [
+    "HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
+    "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy"
+]
 
-@pytest.fixture(autouse=True)
-def disable_proxies(monkeypatch):
+
+@pytest.fixture(scope="session", autouse=True)
+def disable_proxies():
     """对每个用例自动清理环境代理变量，避免requests走系统/代理。"""
-    for k in [
-        "HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
-        "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy"
-    ]:
-        monkeypatch.delenv(k, raising=False)
+    backup = {k: os.environ.get(k) for k in PROXY_KEYS if os.environ.get(k) is not None}
+
+    for k in PROXY_KEYS:
+        os.environ.pop(k, None)
+
     # 让使用这个fixture的用例继续执行
     yield
+
+    # 结束后恢复（可选，但建议做，避免影响你别的项目）
+    for k in PROXY_KEYS:
+        os.environ.pop(k, None)
+    for k, v in backup.items():
+        os.environ[k] = v
 
 
 # --- force import your local api_client by file path ---
@@ -85,7 +96,7 @@ def get_token():
 
 
 @pytest.fixture(scope="session")
-def client(disable_proxies) -> APIClient:
+def client() -> APIClient:
     """
     提供一个全局可复用的 API 客户端（session 级别：整个测试周期仅初始化一次）。
     优点：性能更好；缺点：少数情况下要注意状态共享（如 cookie）。
@@ -97,9 +108,9 @@ def client(disable_proxies) -> APIClient:
     print(f"[Fixture] 使用环境: {cfg['env']} | base_url={cfg['base_url']}")
     return APIClient(
         base_url=cfg["base_url"],
-        timeout=cfg["timeout", 20],
-        retries=cfg.get("retries", 2),
-        backoff=cfg.get("backoff", 0.5),
+        timeout=int(cfg.get("timeout", 20)),
+        retries=int(cfg.get("retries", 2)),
+        backoff=float(cfg.get("backoff", 0.5)),
     )
 
 

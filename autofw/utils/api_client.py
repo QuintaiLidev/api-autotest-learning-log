@@ -13,7 +13,6 @@ import uuid
 import logging
 import requests
 
-
 from autofw.utils.logger_helper import get_logger  # ✅ 建议用绝对导入
 
 logger = get_logger("autofw.api_client")  # ✅ 全局 logger
@@ -96,54 +95,44 @@ class APIClient:
 
     # ✅ Day16 核心：统一请求入口
     def _request(self, method: str, path: str, **kwargs: Any) -> requests.Response:
-        method_u = method.upper()
         url = self._full_url(path)
         req_id = self._new_req_id()
 
-        # 给 timeout 一个兜底（调用方可以覆盖）
-        kwargs.setdefault("timeout", self.timeout)
+        max_attempts = 1 + int(self.retries)
 
-        # 记录一下关键参数（够定位就行）
-        safe_kwargs = {k: kwargs.get(k) for k in ("params", "json", "data", "timeout") if k in kwargs}
-        logger.info("[REQ %s] %s %s %s", req_id, method_u, safe_kwargs)
+        for attempt in range(1, max_attempts + 1):
+            logger.info("[REQ %s] %s %s attempt=%s/%s kwargs=%s",
+                        req_id, method, url, attempt, max_attempts,
+                        {k: kwargs.get(k) for k in ("params", "json", "data")})
 
-        last_exc: Exception | None = None
-        attemps = self.retries + 1  # 例如 retries=1 => 最多尝试2次
-
-        for i in range(attemps):
             try:
-                resp = self.session.request(method_u, url, **kwargs)
-                logger.info("[RESP %s] %s %s status=%s", req_id, method_u, url, resp.status_code)
+                resp = self.session.request(method, url, timeout=self.timeout, **kwargs)
+                logger.info("[RESP %s] %s %s status=%s", req_id, method, url, resp.status_code)
                 return resp
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-                last_exc = e
-                if i < attemps - 1:
-                    logger.warning("[RETRY %s] %s %s attempt=%s/%s err=%s", req_id, method_u, url, i + 1, attemps, e)
-                    time.sleep(self.backoff)
-                    continue
+                if attempt >= max_attempts:
+                    logger.exception("[ERR %s] %s %s final_error=%s", req_id, method, url, e)
+                    raise
 
-                logger.exception("[RETRY %s] %s %s attempt=%s/%s err=%s", req_id, method_u, url, e)
-                raise
-
-        # 理论上不会走到这
-        raise last_exc if last_exc else RuntimeError("Unknown request error")
+                sleep_s = float(self.backoff) * (2 ** (attempt - 1))
+                logger.warning("[RETRY %s] %s %s error=%s sleep=%.2fs", req_id, method, url, e, sleep_s)
+                time.sleep(sleep_s)
 
     def get(
             self,
             path: str,
-            params: Optional[Dict[str, Any]] = None,
-            **kwargs: Any,
-    ) -> requests.Response:
-
+            params=None,
+            **kwargs
+    ):
         return self._request("GET", path, params=params, **kwargs)
 
     def post(
             self,
             path: str,
-            json: Optional[Dict[str, Any]] = None,
-            data: Any = None,
-            **kwargs,
-    ) -> requests.Response:
+            json=None,
+            data=None,
+            **kwargs
+    ):
         return self._request("POST", path, json=json, data=data, **kwargs)
 
     def with_headers(self, headers: Dict[str, str]) -> "APIClient":
