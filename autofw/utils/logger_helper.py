@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from pathlib import Path
 
 # 项目根目录：.../pythonProject
@@ -20,12 +22,16 @@ def get_logger(name: str = "autofw") -> logging.Logger:
     """
     logger = logging.getLogger(name)
 
-    # 如果已经配置过 handler，直接复用
-    if logger.handlers:
-        return logger
-
+    # ✅ 每次调用都保证 level / propagate 正确
     logger.setLevel(logging.INFO)
-    logger.propagate = False
+
+    # ✅ pytest 下打开 propagate，caplog 才能抓到
+    is_pytest = ("PYTEST_CURRENT_TEST" in os.environ) or ("pytest" in sys.modules)
+    logger.propagate = True if is_pytest else False
+
+    # ✅ 避免重复添加 handler：用自定义标记
+    if getattr(logger, "_autofw_configured", False):
+        return logger
 
     # 日志格式：时间 等级 模块名 - 消息
     fmt = logging.Formatter(
@@ -45,4 +51,5 @@ def get_logger(name: str = "autofw") -> logging.Logger:
     fh.setFormatter(fmt)
     logger.addHandler(fh)
 
+    logger._autofw_configured = True
     return logger

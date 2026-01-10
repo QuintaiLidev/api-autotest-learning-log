@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Tuple, Optional, Type
 from requests.adapters import HTTPAdapter
 from requests import exceptions as req_exc
 from urllib3.util.retry import Retry
@@ -16,6 +16,11 @@ import requests
 from autofw.utils.logger_helper import get_logger  # ✅ 建议用绝对导入
 
 logger = get_logger("autofw.api_client")  # ✅ 全局 logger
+
+
+# def _calc_backoff(base: float, attempt: int) -> float:
+#     # attempt 从 1 开始：第1次重试 sleep=base，第2次 sleep=base*2...
+#     return base * (2 ** (attempt - 1))
 
 
 @dataclass
@@ -33,10 +38,16 @@ class APIClient:
     timeout: int = 20  # 默认超时（秒）
 
     # Day16 新增：重试次数 + 退避时间（秒）
-    retries: int = 2  # 1 = 失败后再试2次（总共最多 3 次）
+    retries: int = 2  # 1 = 失败后再试2次（不含首次，总共最多 3 次）
     backoff: float = 0.5  # 每次重试前 sleep 一下
+    retry_statuses: Tuple[int, ...] = (429, 500, 502, 503, 504)  # 可调
+    retry_exceptions: Tuple[Type[BaseException], ...] = (
+        requests.exceptions.Timeout,
+        requests.exceptions.ConnectionError,
+    )
 
     session: requests.Session = field(default_factory=requests.Session)
+    ...
 
     # 默认请求头（可以按需扩展）
     default_headers: Dict[str, str] = field(
@@ -65,19 +76,19 @@ class APIClient:
         # 3）设置默认头
         self.session.headers.update(self.default_headers)
 
-        retry = Retry(
-            total=3,
-            connect=3,
-            read=3,
-            backoff_factor=0.5,  # 0.5s, 1s, 2s...
-            status_forcelist=(429, 500, 503, 503, 504),
-            allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]),
-            raise_on_status=False,
-        )
-
-        adapter = HTTPAdapter(max_retries=retry)
-        self.session.mount("https://", adapter)
-        self.session.mount("http://", adapter)
+        # retry = Retry(
+        #     total=3,
+        #     connect=3,
+        #     read=3,
+        #     backoff_factor=0.5,  # 0.5s, 1s, 2s...
+        #     status_forcelist=(429, 500, 503, 503, 504),
+        #     allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]),
+        #     raise_on_status=False,
+        # )
+        #
+        # adapter = HTTPAdapter(max_retries=retry)
+        # self.session.mount("https://", adapter)
+        # self.session.mount("http://", adapter)
 
     # ------------------ 内部工具方法 ------------------ #
 
@@ -93,46 +104,115 @@ class APIClient:
     def _new_req_id(self) -> str:
         return uuid.uuid4().hex[:8]
 
-    # ✅ Day16 核心：统一请求入口
-    def _request(self, method: str, path: str, **kwargs: Any) -> requests.Response:
+    def _redact_headers(self, headers: Dict[str, Any]) -> Dict[str, Any]:
+        """简单脱敏：避免 Authorization / Token 直接进日志"""
+        if not headers:
+            return {}
+        safe = dict(headers)
+        for k in list(safe.keys()):
+            lk = k.lower()
+            if lk in ("authorization", "x-api-key", "token"):
+                safe[k] = "***REDACTED***"
+        return safe
+
+    def _sleep_seconds(self, attempt: int, backoff: float) -> float:
+        """
+        退避策略：指数退避（可面试解释）
+        第 1 次重试 sleep backoff
+        第 2 次重试 sleep backoff * 2
+        ...
+        """
+        return backoff * (2 ** (attempt - 1))
+
+    # ✅ Day19 核心：统一请求入口
+    def _request(self,
+                 method: str,
+                 path: str,
+                 *,
+                 retries: Optional[int] = None,
+                 backoff: Optional[float] = None,
+                 retry_statuses: Optional[Tuple[int, ...]] = None,
+                 retry_exceptions: Optional[Tuple[Type[BaseException], ...]] = None,
+                 timeout: Optional[int] = None,
+                 **kwargs: Any,
+                 ) -> requests.Response:
         url = self._full_url(path)
         req_id = self._new_req_id()
 
-        max_attempts = 1 + int(self.retries)
+        _retries = self.retries if retries is None else retries
+        _backoff = self.backoff if backoff is None else backoff
+        _retry_statuses = self.retry_statuses if retry_statuses is None else retry_statuses
+        _retry_exceptions = self.retry_exceptions if retry_exceptions is None else retry_exceptions
+        _timeout = self.timeout if timeout is None else timeout
+
+        # 日志（脱敏 headers）
+        safe_headers = self._redact_headers(kwargs.get("headers") or {})
+        logger.info("[REQ %s] %s %s kwargs=%s", req_id, method, url, {**kwargs, "headers": safe_headers})
+
+        # # 统一 timeout：不让外面随便覆盖（你也可以允许覆盖，看你习惯）
+        # kwargs.pop("timeout", None)
+
+        max_attempts = 1 + max(0, int(_retries))  # 首次 + retries 次
+        last_exc: Optional[BaseException] = None
 
         for attempt in range(1, max_attempts + 1):
-            logger.info("[REQ %s] %s %s attempt=%s/%s kwargs=%s",
-                        req_id, method, url, attempt, max_attempts,
-                        {k: kwargs.get(k) for k in ("params", "json", "data")})
+            # logger.info("[REQ %s] %s %s attempt=%s/%s kwargs=%s",
+            #             req_id, method.upper(), url, attempt, max_attempts,
+            #             {k: kwargs.get(k) for k in ("params", "json", "data")})
 
+            start = time.perf_counter()
             try:
-                resp = self.session.request(method, url, timeout=self.timeout, **kwargs)
-                logger.info("[RESP %s] %s %s status=%s", req_id, method, url, resp.status_code)
+                resp = self.session.request(method, url, timeout=_timeout, **kwargs)
+                elapsed_ms = int((time.perf_counter() - start) * 1000)
+                logger.info("[RESP %s] %s %s status=%s elapsed_ms=%s", req_id, method, url, resp.status_code,
+                            elapsed_ms)
+
+                # 响应到手：判断是否需要按状态码重试
+                if resp.status_code in _retry_statuses and attempt < max_attempts:
+                    sleep_s = self._sleep_seconds(attempt, _backoff)
+                    logger.warning("[RETRY %s] %S status=%s attempt=%s/%s sleep=%.2fs", req_id, method.upper(),
+                                   resp.status_code,
+                                   attempt, max_attempts,
+                                   sleep_s)
+                    time.sleep(sleep_s)
+                    continue
+
+                logger.info("[RESP %s] %s %s status=%s", req_id, method.upper(), url, resp.status_code)
                 return resp
-            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+
+            except _retry_exceptions as e:
+                last_exc = e
+                elapsed_ms = int((time.perf_counter() - start) * 1000)
+                logger.warning("[ERR %s] %s %s exc=%s elapsed_ms=%s", req_id, method, url, type(e).__name__, elapsed_ms)
+
                 if attempt >= max_attempts:
-                    logger.exception("[ERR %s] %s %s final_error=%s", req_id, method, url, e)
+                    logger.exception("[FAIL %s] %s %s retries_exhausted after %s attempts: %s", req_id, method.upper(), url, max_attempts, e)
                     raise
 
-                sleep_s = float(self.backoff) * (2 ** (attempt - 1))
-                logger.warning("[RETRY %s] %s %s error=%s sleep=%.2fs", req_id, method, url, e, sleep_s)
+                sleep_s = self._sleep_seconds(attempt, _backoff)
+                logger.info("[RETRY %s] %s exc=%s attempt=%s/%s sleep=%.2fs", req_id, method.upper(), type(e).__name__, attempt, max_attempts, sleep_s)
                 time.sleep(sleep_s)
+
+        # 理论上不会走到这里
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("_request() failed unexpectedly, retry loop exit")
 
     def get(
             self,
             path: str,
-            params=None,
-            **kwargs
-    ):
+            params: Optional[Dict[str, Any]] = None,
+            **kwargs: Any
+    ) -> requests.Response:
         return self._request("GET", path, params=params, **kwargs)
 
     def post(
             self,
             path: str,
-            json=None,
-            data=None,
-            **kwargs
-    ):
+            json: Optional[Dict[str, Any]] = None,
+            data: Any = None,
+            **kwargs: Any
+    ) -> requests.Response:
         return self._request("POST", path, json=json, data=data, **kwargs)
 
     def with_headers(self, headers: Dict[str, str]) -> "APIClient":
@@ -165,5 +245,7 @@ class APIClient:
             timeout=self.timeout,
             retries=self.retries,
             backoff=self.backoff,
+            retry_statuses=self.retry_statuses,
+            retry_exceptions=self.retry_exceptions,
             session=new_session,
         )
