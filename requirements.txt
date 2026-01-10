@@ -1,2 +1,6 @@
 # 依赖清单（后面可生成）
-PyYAML
+pytest
+pytest-html
+requests
+pyyaml
+
