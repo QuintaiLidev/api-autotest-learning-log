@@ -1,3 +1,5 @@
+![CI](https://github.com/QuintaiLidev/api-autotest-learning-log/actions/workflows/ci.yml/badge.svg)
+
 # API Autotest Learning Log
 
 Learning project for API automation using **Python + pytest + requests**.  
@@ -14,3 +16,12 @@ Includes fixtures, parameterization, headers validation, and step-by-step day fo
 ```bash
 pip install -r requirements.txt   # if you exported one
 pytest
+
+
+## Quick Start
+```bash
+python -m venv venv
+# Windows
+venv\Scripts\activate
+pip install -r requirements.txt
+pytest -q
