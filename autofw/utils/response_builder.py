@@ -2,16 +2,16 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional
+from typing import Any
 
 import requests
 
 
 def build_response(
         status_code: int,
-        json_body: Optional[Dict[str, Any]] = None,
+        json_body: dict[str, Any] | None = None,
         url: str = "http://mock.local",
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
 ) -> requests.Response:
     """
     构造一个假的 requests.Response，用于 Mock 测试。

@@ -1,4 +1,5 @@
 import pytest
+
 from autofw.utils.data_loader import load_yaml
 
 # 模块加载时，就把 YAML 读进来

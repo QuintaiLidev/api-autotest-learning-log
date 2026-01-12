@@ -1,6 +1,4 @@
-# 依赖清单（后面可生成）
-pytest
+﻿pytest
 pytest-html
 requests
 pyyaml
-

@@ -1,7 +1,7 @@
 # autofw/services/demo_echo_service.py
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Any
 
 from autofw.api_client import APIClient
 
@@ -20,14 +20,14 @@ class EchoService:
     def __init__(self, client: APIClient) -> None:
         self.client = client
 
-    def get_with_params(self, params: Dict[str, Any]):
+    def get_with_params(self, params: dict[str, Any]):
         """
         调用 GET /get，并把查询参数传过去。
         一定要把 client.get(...) 的结果 return 出去！
         """
         return self.client.get("/get", params=params)
 
-    def post_json(self, json_body: Dict[str, Any]):
+    def post_json(self, json_body: dict[str, Any]):
         """
         调用 POST /post，并发送 JSON 请求体。
         同样要记得 return。

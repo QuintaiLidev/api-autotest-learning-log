@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, Tuple, Optional, Type
-from requests.adapters import HTTPAdapter
-from requests import exceptions as req_exc
-from urllib3.util.retry import Retry
-
 import time
 import uuid
-import logging
+from dataclasses import dataclass, field
+from typing import Any
+
 import requests
 
 from autofw.utils.logger_helper import get_logger  # ✅ 建议用绝对导入
@@ -40,8 +36,8 @@ class APIClient:
     # Day16 新增：重试次数 + 退避时间（秒）
     retries: int = 2  # 1 = 失败后再试2次（不含首次，总共最多 3 次）
     backoff: float = 0.5  # 每次重试前 sleep 一下
-    retry_statuses: Tuple[int, ...] = (429, 500, 502, 503, 504)  # 可调
-    retry_exceptions: Tuple[Type[BaseException], ...] = (
+    retry_statuses: tuple[int, ...] = (429, 500, 502, 503, 504)  # 可调
+    retry_exceptions: tuple[type[BaseException], ...] = (
         requests.exceptions.Timeout,
         requests.exceptions.ConnectionError,
     )
@@ -50,7 +46,7 @@ class APIClient:
     ...
 
     # 默认请求头（可以按需扩展）
-    default_headers: Dict[str, str] = field(
+    default_headers: dict[str, str] = field(
         default_factory=lambda: {
             "User-Agent": "APIClient/1.0",
             "Accept": "application/json, */*;q=0.8",
@@ -104,7 +100,7 @@ class APIClient:
     def _new_req_id(self) -> str:
         return uuid.uuid4().hex[:8]
 
-    def _redact_headers(self, headers: Dict[str, Any]) -> Dict[str, Any]:
+    def _redact_headers(self, headers: dict[str, Any]) -> dict[str, Any]:
         """简单脱敏：避免 Authorization / Token 直接进日志"""
         if not headers:
             return {}
@@ -129,11 +125,11 @@ class APIClient:
                  method: str,
                  path: str,
                  *,
-                 retries: Optional[int] = None,
-                 backoff: Optional[float] = None,
-                 retry_statuses: Optional[Tuple[int, ...]] = None,
-                 retry_exceptions: Optional[Tuple[Type[BaseException], ...]] = None,
-                 timeout: Optional[int] = None,
+                 retries: int | None = None,
+                 backoff: float | None = None,
+                 retry_statuses: tuple[int, ...] | None = None,
+                 retry_exceptions: tuple[type[BaseException], ...] | None = None,
+                 timeout: int | None = None,
                  **kwargs: Any,
                  ) -> requests.Response:
         url = self._full_url(path)
@@ -153,7 +149,7 @@ class APIClient:
         # kwargs.pop("timeout", None)
 
         max_attempts = 1 + max(0, int(_retries))  # 首次 + retries 次
-        last_exc: Optional[BaseException] = None
+        last_exc: BaseException | None = None
 
         for attempt in range(1, max_attempts + 1):
             # logger.info("[REQ %s] %s %s attempt=%s/%s kwargs=%s",
@@ -201,7 +197,7 @@ class APIClient:
     def get(
             self,
             path: str,
-            params: Optional[Dict[str, Any]] = None,
+            params: dict[str, Any] | None = None,
             **kwargs: Any
     ) -> requests.Response:
         return self._request("GET", path, params=params, **kwargs)
@@ -209,13 +205,13 @@ class APIClient:
     def post(
             self,
             path: str,
-            json: Optional[Dict[str, Any]] = None,
+            json: dict[str, Any] | None = None,
             data: Any = None,
             **kwargs: Any
     ) -> requests.Response:
         return self._request("POST", path, json=json, data=data, **kwargs)
 
-    def with_headers(self, headers: Dict[str, str]) -> "APIClient":
+    def with_headers(self, headers: dict[str, str]) -> APIClient:
         """
         返回一个“克隆客户端”，在当前 client 的配置基础上，
         追加一些 headers，但不污染原来的 session.headers。
@@ -233,7 +229,7 @@ class APIClient:
         new_session.trust_env = False  # 克隆出来的 client 也关闭代理
 
         # 合并头信息（后面的覆盖前面的）
-        merged_headers: Dict[str, str] = {}
+        merged_headers: dict[str, str] = {}
         merged_headers.update(self.default_headers)  # 默认头
         merged_headers.update(self.session.headers)  # 当前 client 的头
         merged_headers.update(headers)  # 新追加的头

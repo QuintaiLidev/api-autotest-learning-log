@@ -1,8 +1,9 @@
 # tests/day18_retry_policy/test_retry_policy.py
 import pytest
 import requests
-from autofw.utils.response_builder import build_response
+
 import autofw.utils.api_client as api_client_mod  # ✅ 关键：显式导入子模块
+from autofw.utils.response_builder import build_response
 
 
 @pytest.mark.mock

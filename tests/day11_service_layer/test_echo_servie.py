@@ -2,7 +2,8 @@
 import pytest
 
 from autofw.services.demo_echo_service import EchoService
-from autofw.utils.assertions import assert_status_code,assert_dict_contains
+from autofw.utils.assertions import assert_dict_contains, assert_status_code
+
 
 @pytest.mark.service
 @pytest.mark.smoke

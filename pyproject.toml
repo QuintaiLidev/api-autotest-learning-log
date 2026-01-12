@@ -1,0 +1,7 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"] # 基础错误/导入排序/py升级建议/bugbear
+ignore = ["E501"]   # 行太长先不管（你日志/长URL多）

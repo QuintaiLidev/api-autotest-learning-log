@@ -1,10 +1,11 @@
 import os
+
 import pytest
 import requests
 
-from autofw.utils.config_loader import load_config
 from autofw.api_client import APIClient
 from autofw.services.demo_echo_service import EchoService
+from autofw.utils.config_loader import load_config
 
 PROXY_KEYS = [
     "HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",

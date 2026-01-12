@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import pytest
 
+from autofw.services.demo_echo_service import EchoService
 from autofw.utils.assertions import (
-    assert_status_code,
     assert_dict_contains,
     assert_json_value,
     assert_list_length,
+    assert_status_code,
 )
-from autofw.services.demo_echo_service import EchoService
 
 
 @pytest.mark.assertions

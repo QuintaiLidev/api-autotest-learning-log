@@ -1,5 +1,5 @@
-from autofw.utils.logger_helper import get_logger
 from autofw.utils.api_client import APIClient
+from autofw.utils.logger_helper import get_logger
 
 
 def test_logging_smoke():

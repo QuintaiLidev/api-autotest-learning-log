@@ -9,8 +9,14 @@ autofw/utils/assertions.py
 """
 
 from __future__ import annotations
-from collections.abc import Mapping  # Mapping 是“映射类型”接口，dict 就实现了 Mapping
-from typing import Any, Sequence, Sized  # Any 表示“任意类型”，方便做通用工具
+
+from collections.abc import (  # Any 表示“任意类型”，方便做通用工具
+    Mapping,  # Mapping 是“映射类型”接口，dict 就实现了 Mapping
+    Sequence,
+    Sized,
+)
+from typing import Any
+
 from requests import Response  # requests.Response，用于类型标注
 
 

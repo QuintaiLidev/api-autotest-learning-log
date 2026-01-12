@@ -1,6 +1,6 @@
 import pytest
 import requests
-from autofw.utils.response_builder import build_response
+
 import autofw.utils.api_client as api_client_mod
 
 

@@ -24,4 +24,6 @@ python -m venv venv
 # Windows
 venv\Scripts\activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
+ruff check .
 pytest -q

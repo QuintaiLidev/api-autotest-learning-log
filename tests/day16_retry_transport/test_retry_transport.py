@@ -2,7 +2,7 @@
 import pytest
 import requests
 
-from autofw.utils.assertions import assert_status_code, assert_json_value
+from autofw.utils.assertions import assert_json_value, assert_status_code
 from tests.day15_mocking.test_echo_service_mocked import build_response
 
 

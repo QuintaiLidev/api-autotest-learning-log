@@ -30,13 +30,13 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Run unit tests (no network)
         run: |
           mkdir -p reports
           pytest -m "not (network or integration)" -q \
-            --junitxml=reports/junit.xml
+            --html=reports/unit.xml --self-contained-html 
 
       - name: Upload report
         if: always()
@@ -66,7 +66,7 @@ jobs:
       - name: Run network/integration tests
         run: |
           mkdir -p reports
-          pytest -m "network or integration" -q
+          pytest -m "network or integration" -q --html=reports/network.html --self-contained-html
 
       - name: Upload report
         if: always()
@@ -74,3 +74,22 @@ jobs:
         with:
           name: reports-network
           path: reports/
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install deps
+        run: | 
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Ruff lint
+        run: |
+          ruff check .

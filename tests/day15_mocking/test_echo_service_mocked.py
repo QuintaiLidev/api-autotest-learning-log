@@ -1,7 +1,7 @@
 # tests/day15_mocking/test_echo_service_mocked.py
 import pytest
 
-from autofw.utils.assertions import assert_status_code, assert_dict_contains, assert_json_value
+from autofw.utils.assertions import assert_dict_contains, assert_json_value, assert_status_code
 from autofw.utils.response_builder import build_response
 
 

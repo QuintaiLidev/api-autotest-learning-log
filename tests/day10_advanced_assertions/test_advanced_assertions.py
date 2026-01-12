@@ -3,8 +3,8 @@
 import pytest
 import requests
 
+from autofw.utils.assertions import assert_dict_contains, assert_status_code
 from autofw.utils.data_loader import load_yaml
-from autofw.utils.assertions import assert_status_code, assert_dict_contains
 
 # 启动时一次性加载 YAML 用例
 cases = load_yaml("day10_unified_cases.yml")
