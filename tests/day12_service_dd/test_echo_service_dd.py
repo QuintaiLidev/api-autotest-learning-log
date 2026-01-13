@@ -1,10 +1,10 @@
 # tests/day12_service_dd/test_echo_service_dd.py
 import pytest
 
-pytestmark = pytest.mark.network  # ✅ 整个模块默认都是 network
-
 from autofw.services.demo_echo_service import EchoService
 from autofw.utils.assertions import assert_dict_contains, assert_status_code
+
+pytestmark = pytest.mark.network  # ✅ 整个模块默认都是 network
 
 
 @pytest.mark.service

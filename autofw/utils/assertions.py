@@ -180,13 +180,13 @@ def _get_by_path(data: Any, path: str) -> Any:
                     f"Path {path!r}: index {idx} out of range for sequence"
                     f"of length {len(current)}; current={current!r}"
                 )
-                raise AssertionError(msg)
+                raise AssertionError(msg) from None
         else:
             msg = (
                 f"Path {path!r}: not found: cannot descend into "
                 f"{type(current).__name__!r}, value={current!r}"
             )
-            raise AssertionError(msg)
+            raise AssertionError(msg) from None
 
     return current
 
