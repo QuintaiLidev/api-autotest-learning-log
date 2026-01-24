@@ -27,3 +27,15 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt
 ruff check .
 pytest -q
+
+# 只跑本地稳定层（不打真外网）
+.\scripts\run.ps1 -Mode unit
+
+# 跑真外网层（network / integration）
+.\scripts\run.ps1 -Mode network
+
+# 全部跑完（lint + unit + network）
+.\scripts\run.ps1 -Mode all
+
+# 指定 marker 表达式（你想怎么拼都行）
+.\scripts\run.ps1 -Marker "mock" -Report "mock.html"

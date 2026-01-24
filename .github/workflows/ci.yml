@@ -33,10 +33,7 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run unit tests (no network)
-        run: |
-          mkdir -p reports
-          pytest -m "not (network or integration)" -q \
-            --html=reports/unit.xml --self-contained-html 
+        run: make unit
 
       - name: Upload report
         if: always()
@@ -64,9 +61,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run network/integration tests
-        run: |
-          mkdir -p reports
-          pytest -m "network or integration" -q --html=reports/network.html --self-contained-html
+        run: make network
 
       - name: Upload report
         if: always()
@@ -91,5 +86,4 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Ruff lint
-        run: |
-          ruff check .
+        run: make lint
