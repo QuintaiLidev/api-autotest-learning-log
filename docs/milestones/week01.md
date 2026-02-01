@@ -1,23 +1,46 @@
-# Week01 一键化门禁入口
+# Week01 一键化门禁入口（全绿 ✅）
 
 ## 目标
-- 本地一键：lint / unit / network
-- CI 复用同一套入口，减少重复命令
-- 报告产物固定路径 + 固定命名，方便追溯
+把“能跑的用例”升级为“任何人拉代码都能一键跑”的工程门禁入口：
+- 本地：lint / unit / network 分层执行
+- 输出：pytest-html 报告稳定产出
+- 体验：少记命令，多记入口
 
-## 交付物
-- [ ] Makefile：make lint / make unit / make network / make ci
-- [ ] scripts/run.ps1：Windows 一键执行入口
-- [ ] reports/：unit.html / network.html 固定输出
-- [ ] README：补充 Quick Commands（可选）
+## 本周交付物
+### 1) scripts/run.ps1（门禁总入口）
+支持四类运行方式：
+- Mode：unit / network / all
+- Marker：自定义 marker 表达式
+- Report：自定义报告文件名
 
-## 验收标准
-- 新机器 clone 后，能一键跑通 unit（不依赖外网）
-- CI 上 job 清晰，artifact 可下载并可打开报告
+常用命令：
+- `.\scripts\run.ps1 -Mode unit`
+- `.\scripts\run.ps1 -Mode network`
+- `.\scripts\run.ps1 -Mode all`
+- `.\scripts\run.ps1 -Marker "mock" -Report "mock.html"`
 
-## 本周遇到的问题与解决
-- TBD
+### 2) README.md 补充 Quick Commands
+新增「Quick Commands」区，保证新同学只看 README 也能跑起来：
+- 创建 venv / 安装依赖
+- ruff check
+- pytest -q
+- scripts/run.ps1 常用入口
 
-## 下周计划（Week02 失败定位闭环）
-- 日志规范：REQ/RESP/elapsed/retry
-- debug_playbook.md：失败分类与定位流程
+### 3) 工程分层原则（当前版）
+- unit：不依赖外部网络（默认稳定层）
+- network：真外网巡检层（不稳定但必要）
+- integration：真实联调层（也可能真打外网，按用例需求）
+
+## CI 关联
+- push/PR 默认跑 lint + unit（稳定层门禁）
+- network 只在 schedule 或 workflow_dispatch(run_network=true) 时执行（巡检层）
+
+## 结果
+- Week01 全绿 ✅
+- 门禁入口可复用、可读、可写进简历
+
+## 下周（Week02）预告
+失败定位闭环：
+- APIClient 日志规范（请求/响应摘要、耗时、重试信息）
+- 失败分类（超时/连接/5xx/断言失败）
+- debug_playbook：失败如何复现、如何定位、如何加固
