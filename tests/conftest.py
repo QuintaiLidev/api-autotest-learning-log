@@ -6,11 +6,13 @@ import requests
 from autofw.api_client import APIClient
 from autofw.services.demo_echo_service import EchoService
 from autofw.utils.config_loader import load_config
+from autofw.utils.db import PG
 
 PROXY_KEYS = [
     "HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
     "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy"
 ]
+
 
 @pytest.fixture(scope="session", autouse=True)
 def disable_proxies():
@@ -75,10 +77,58 @@ def network_client(client: APIClient) -> APIClient:
         retries=max(getattr(client, "retries", 2), 3),
         backoff=max(getattr(client, "backoff", 0.5), 1.0),
         retry_statuses=getattr(client, "retry_statuses", (429, 500, 502, 503, 504)),
-        retry_exceptions=getattr(client, "retry_exceptions", (requests.exceptions.Timeout, requests.exceptions.ConnectionError)),
+        retry_exceptions=getattr(client, "retry_exceptions",
+                                 (requests.exceptions.Timeout, requests.exceptions.ConnectionError)),
     )
 
 
 @pytest.fixture
 def echo_service(client: APIClient):
     return EchoService(client)
+
+
+@pytest.fixture(scope="session")
+def pg() -> PG:
+    """
+    Postgres helper (env-driven)
+    Default:
+        PGHOST=127.0.0.1
+        PGPORT=5432
+        PGDATABASE=autofw
+        PGUSER=autofw
+        PGPASSWORD=autofw
+    """
+    pg = PG()
+    pg.wait_ready()
+    return pg
+
+
+@pytest.fixture(scope="session")
+def pg_schema(pg: PG):
+    """
+    week03: minimal schema for DB assertions.
+    """
+    pg.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users(
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        update_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        """
+    )
+    yield
+
+
+@pytest.fixture(scope="function")
+def pg_clean_users(pg: PG, pg_schema):
+    """
+    keep tests repeatable: clean rows created in test.
+    """
+    # before
+    pg.execute("DELETE FROM users;")
+    yield
+    # after
+    pg.execute("DELETE FROM users;")

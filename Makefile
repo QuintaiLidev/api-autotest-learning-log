@@ -1,3 +1,4 @@
+# Makefile
 .PHONY: help lint unit network test ci clean
 
 PYTHON ?= python
@@ -9,7 +10,8 @@ REPORTS_DIR ?= reports
 help:
 	@echo "Targets:"
 	@echo "  make lint     - ruff check ."
-	@echo "  make unit     - pytest (not network/integration) + html report"
+	@echo "  make unit     - pytest (not network/integration/db) + html report"
+	@echo "  make db       - pytest db + report"
 	@echo "  make network  - pytest (network or integration) + html report"
 	@echo "  make test     - alias of unit"
 	@echo "  make ci       - lint + unit"
@@ -20,14 +22,17 @@ lint:
 
 unit:
 	mkdir -p $(REPORTS_DIR)
-	$(PYTEST) -m "not (network or integration)" -q --html=$(REPORTS_DIR)/unit.html --self-contained-html
+	$(PYTEST) -m "not (network or integration or db)" -q --html=$(REPORTS_DIR)/unit.html --self-contained-html
+
+db:
+	mkdir -p $(REPORTS_DIR)
+	$(PYTEST) -m "db" -q --html=$(REPORTS_DIR)/db.html --self-contained-html
 
 network:
 	mkdir -p $(REPORTS_DIR)
 	$(PYTEST) -m "network or integration" -q --html=$(REPORTS_DIR)/network.html --self-contained-html
 
 test: unit
-
 ci: lint unit
 
 clean:

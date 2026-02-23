@@ -1,278 +1,188 @@
-# Debug Playbook | 失败定位闭环（Week02）
+# Debug Playbook - CI / 接口自动化失败定位手册
 
-> 目标：当 CI / 本地测试失败时，做到 **可复现、可定位、可解释、可加固**。  
-> 你可以把它当作“故障处理说明书 + 面试故事提词器”。
-
----
-
-## 0. 快速结论（TL;DR）
-
-当失败发生，我按三步走：
-
-1) **先分层**：unit（稳定层） vs network/integration（真外网层）  
-2) **再分类**：超时 / 连接 / 5xx / 断言 / 数据与环境  
-3) **最后闭环**：复现 -> 定位 -> 修复/加固 -> 记录（日志/用例/手册）
+> 适用范围：用于快速 **复现**、**定位**、**修复** 以下失败：
+> - `lint`（ruff 静态检查）
+> - `unit`（不依赖外网的稳定层）
+> - `network` / `integration`（真外网层，仅 schedule/手动触发）
 
 ---
 
-## 1. 运行入口（我只用这三个命令）
+## 0. 项目信息（填空）
+- 仓库：【api-autotest-learning-log】
+- 默认分支：【main】
+- Workflow：【.github/workflows/ci.yml】
+- 统一入口：
+  - 本地 Windows：`.\scripts\run.ps1 -Mode unit|network|all`
+  - CI/Linux：`make lint|unit|network`
 
-### 1.1 稳定层（默认先跑它）
-```powershell
+---
+
+## 1. 前 60 秒：快速分诊清单（Triage）
+
+### 1.1 确认失败的 Job
+- [ ] Job 名称：`lint` / `unit` / `network`
+- [ ] 触发类型：`push` / `pull_request` / `workflow_dispatch` / `schedule`
+- [ ] Actions 里失败的 step：【例如：Ruff lint / Run unit tests / Run network tests】
+
+### 1.2 判断“代码问题”还是“环境/基础设施问题”
+**代码问题常见信号**
+- 断言失败、ImportError、ruff 规则报错、pytest 用例失败
+
+**环境/基础设施问题常见信号**
+- pip install 失败、checkout 失败、DNS/连接超时、权限、限流、缓存异常
+
+结论：
+- [ ] 本次更像：【代码问题 / 环境问题】
+
+### 1.3 下载报告（如果有 artifact）
+- 下载 `reports-unit` / `reports-network`
+- 打开 `reports/unit.html` 或 `reports/network.html`，确认：
+  - 用例总数、失败列表、错误堆栈（stacktrace）
+
+---
+
+## 2. 本地复现（最短路径）
+
+### 2.1 环境信息采集（把结果贴到 PR/issue）
+```bash
+python -V
+pip -V
+pytest --version
+ruff --version
+2.2 安装依赖
+pip install -r requirements-dev.txt
+2.3 按“分层”复现
+A) Lint（ruff）
+ruff check .
+B) Unit（不依赖外网）
+Windows
+
 .\scripts\run.ps1 -Mode unit
-````
+Linux/macOS（或 CI 逻辑一致）
 
-### 1.2 真外网层（只在需要时跑）
+make unit
+# 或：
+pytest -m "not (network or integration)" -q
+C) Network / Integration（真外网）
+Windows
 
-```powershell
 .\scripts\run.ps1 -Mode network
-```
+Linux/macOS
 
-### 1.3 全量（本地验收/发布前）
+make network
+# 或：
+pytest -m "network or integration" -q
+3. 失败分类（选一个对号入座）
+A) Lint 失败（ruff）
+常见原因
 
-```powershell
-.\scripts\run.ps1 -Mode all
-```
+导入顺序、未使用变量、格式问题、规则触发等
 
-> ✅ 如果是 CI 失败，我会先在本地用同一条命令复现（保证路径一致）
+修复步骤
 
----
+ 运行 ruff check .
 
-## 2. 一眼判断：失败发生在哪一层？
+ 按提示修复文件：【文件路径】
 
-### 2.1 unit 失败（优先级最高）
+ 再次运行 ruff check . 直到全绿
 
-特征：
+备注
 
-* 不依赖外网
-* 重跑大概率依然失败
-  结论：
-* **大概率是代码/断言/数据驱动/fixture 的稳定性问题**
+如果某条规则不适合项目，可在 pyproject.toml 里配置 ignore，但必须写清理由。
 
-行动：
+B) Unit 失败（稳定层）
+常见原因
 
-* 直接进入 **第 3 节失败分类**
+fixture/配置加载问题、导入路径问题、用例依赖外网但没标 marker、时间相关波动
 
----
+修复步骤
 
-### 2.2 network / integration 失败（可疑：外网波动）
+ 确认 unit 层 marker 表达式排除了 (network or integration)
 
-特征：
+ 在报告/日志里定位失败用例
 
-* 报错包含 Timeout / ConnectionError / 5xx / 429
-* 重跑可能过、可能不过
-  结论：
-* **可能是外网波动，也可能是重试/超时策略不足或断言过严**
+ 单测单点复现（精准击杀）：
 
-行动：
+pytest -q path/to/test_file.py::test_name -vv
+ 修复后再跑 unit 层验证全绿
 
-* 先看 **重跑是否稳定**（第 4 节）
-* 再进入 **第 3 节失败分类**
+C) Network / Integration 失败（真外网层）
+常见原因
 
----
+外部服务抖动/限流、超时过小、重试策略不合理、响应字段偶发变化
 
-## 3. 失败分类（Fail Taxonomy）
+修复步骤
 
-> 每次失败，先把它放进一个“盒子”里。盒子放对了，排查速度会快很多。
+ 确认 network job 是否正确触发（schedule/手动）
 
-### A) Timeout 超时
+ 增加信息量复现：
 
-常见症状：
+pytest -m "network or integration" -vv --durations=10
+ 若属于外部抖动：
 
-* `requests.exceptions.Timeout`
-* CI 环境更容易出现
+能 mock 的下沉到 mock 层
 
-排查路径：
+保留“最小真外网巡检集”（少而稳定）
 
-1. 查看日志中该请求的 `timeout` 配置（默认 / 覆盖）
-2. 看是否属于 network 层（外网波动）
-3. 评估是否需要提升 network_client 的 timeout
+ 必要时调整 APIClient：timeout / retries / backoff
 
-加固策略（可选填）：
+D) CI 环境/基础设施失败（Infra）
+常见原因
 
-* [ ] network_client 提升 timeout 至：____ 秒
-* [ ] 增加重试次数：____ 次
-* [ ] 指数退避 backoff：____ 秒起
+依赖安装失败、命令不可用、报告目录未创建导致 artifact 缺失、路径/权限问题
 
----
+修复步骤
 
-### B) ConnectionError 连接失败 / reset
+ 看失败 step 的原始命令与错误信息
 
-常见症状：
+ 确认 runner 可用工具（Ubuntu 有 make；Windows 本地未必有）
 
-* `requests.exceptions.ConnectionError`
-* `Connection reset by peer`
-* `Empty reply from server`
+ 确保在生成报告前创建 reports/（例如 mkdir -p reports）
 
-排查路径：
+ 修复后重跑 workflow 验证
 
-1. 确认当前网络是否可访问目标域名（公司网/代理/VPN）
-2. 是否是 CI 网络抖动（尤其是外网 API）
-3. 查看是否被代理污染（本项目已默认禁用代理：trust_env=False + disable_proxies）
+4. 证据包（发 PR/写总结的标准格式）
+把下面 6 项贴出来就够了：
 
-加固策略：
+失败 job + 触发类型：【例如：network on schedule】
 
-* [ ] 保持 network 层“条件触发”（不让它污染主门禁）
-* [ ] 对外网依赖改为 mock 或录制数据（后续可做）
+失败 step 的关键日志（10-20 行）
 
----
+本地复现命令 + 结果（能贴截图更好）
 
-### C) HTTP 5xx / 429
+根因总结（1 句话）：【例如：Makefile 用了空格缩进导致 CI make 解析失败】
 
-常见症状：
+修复总结（1 句话）：【例如：Makefile 规则行改为 Tab + 修正 target 名称】
 
-* status=500/502/503/504/429
-* 日志中出现 RETRY 记录
+预防措施（1 句话）：【例如：CI 强制使用 make target；本地用 run.ps1 同步行为】
 
-排查路径：
+5. 面试讲故事模式（60 秒 STAR）
+S（Situation 情景）
+【什么时候触发、什么场景失败？例如：nightly schedule 触发 network 巡检失败】
 
-1. 看响应码是否在 `retry_statuses` 列表里
-2. 看是否触发重试、重试次数是否耗尽
-3. 评估是否需要调整 retry_statuses / retries / backoff
+T（Task 目标）
+【你要保证什么？例如：CI 门禁稳定、报告可追溯、失败能快速定位】
 
-加固策略：
+A（Action 行动，建议 3 步）
+【先定位：看 job/step + 下载报告】
 
-* [ ] retry_statuses 增补：____
-* [ ] retries 调整为：____
-* [ ] backoff 调整为：____
+【再复现：本地按层跑 unit/network，缩小范围】
 
----
+【再加固：写 playbook/补日志/隔离 mock vs network/调整重试超时】
 
-### D) AssertionError 断言失败
+R（Result 结果，尽量量化）
+CI 恢复：【三绿灯】
 
-常见症状：
+定位耗时：【从 X 分钟 -> Y 分钟】
 
-* 断言字段缺失 / 值不一致 / schema 不匹配
-* unit 层常见
+稳定性提升：【把不稳定点下沉到 mock，保留最小真外网巡检】
 
-排查路径：
+6. Week2 验收标准（Definition of Done）
+ Playbook 已创建，结构清晰可读
 
-1. 打开 pytest-html 报告：`reports/____.html`
-2. 对照日志的 `REQ/RESP` 摘要，确认实际返回
-3. 判断断言是否“过度严格”（字段可选 / 顺序问题 / 浮动值）
+ 任意失败可在 2 分钟内归类 A/B/C/D
 
-加固策略：
+ CI 报告 artifact 能支撑定位（unit/network 均可追溯）
 
-* [ ] 将断言改为“子集断言 / 宽松断言”
-* [ ] 对浮动字段做忽略：____（例如 timestamp / request_id）
-* [ ] 增加失败时打印关键上下文：____
+ 你能用 STAR 讲清楚一次真实修复案例（60 秒）
 
----
-
-### E) Data/Fixture/Env 问题（数据驱动、fixture 污染）
-
-常见症状：
-
-* 本地能过、CI 偶发失败
-* 用例之间互相影响（状态共享）
-
-排查路径：
-
-1. 看 fixture scope 是否过大（session 引入状态污染）
-2. 检查测试是否依赖执行顺序
-3. 对数据驱动文件（YAML/JSON）做校验与日志输出
-
-加固策略：
-
-* [ ] 缩小 fixture scope：session -> function
-* [ ] 清理共享状态（cookie/session）
-* [ ] 给数据读取加校验与异常提示
-
----
-
-## 4. 重跑策略（判断波动还是必现）
-
-> 目的：用最少的重跑次数，判断“这是外网波动”还是“代码必现”。
-
-### 4.1 network 失败时的重跑判定
-
-* 重跑 1 次：仍失败 -> 更像配置/代码问题
-* 重跑 1 次：通过 -> 更像外网波动（需要隔离）
-
-建议命令：
-
-```powershell
-.\scripts\run.ps1 -Mode network
-```
-
-记录（填空）：
-
-* 第一次失败时间：____
-* 重跑结果：____（pass/fail）
-* 失败类型：____（Timeout/Connection/5xx/Assertion/Other）
-
----
-
-## 5. 我如何读日志（REQ/RESP/RETRY/ERR）
-
-> Week02 的目标之一：让日志像“飞行记录仪”。
-
-我会在日志里抓这几样：
-
-* `req_id`：一次请求的唯一标识
-* `method + url`
-* `status_code`
-* `elapsed_ms`
-* `attempt` 与 `sleep`（重试轨迹）
-* 脱敏 headers（Authorization 不落盘）
-
-（填空）日志文件位置：
-
-* `logs/____.log`
-
----
-
-## 6. 修复后闭环（必须留痕）
-
-每次我修复一个失败，我会做 3 件事：
-
-1. **加固**（比如：更合理的断言、重试策略、超时配置）
-2. **补一条用例或补一条日志**（防止同类问题复发）
-3. **更新本 Playbook 的“案例库”**（第 7 节）
-
----
-
-## 7. 案例库（面试讲故事用）
-
-> 每个案例 6 行，面试 60 秒讲完。
-
-### Case-01（模板）
-
-* 背景：____（CI / 本地 / 某次回归）
-* 现象：____（报错关键词 / 失败用例）
-* 初判：____（属于哪一层：unit/network）
-* 定位：____（日志 req_id / 报告截图 / 关键字段）
-* 解决：____（改了什么：重试/断言/fixture）
-* 收益：____（稳定性提升 / 回归更快 / 可解释）
-
-### Case-02
-
-* 背景：____
-* 现象：____
-* 初判：____
-* 定位：____
-* 解决：____
-* 收益：____
-
----
-
-## 8. 面试 60 秒版本（可直接背）
-
-我做了接口自动化的“失败定位闭环”。
-首先把测试分层：unit 默认跑、network 条件触发，避免外网波动污染门禁。
-当失败发生，我先判断属于哪一层，再按超时/连接/5xx/断言/环境做分类。
-同时在 APIClient 里规范日志，记录 req_id、耗时、状态码和重试轨迹。
-最后把每次故障沉淀为 playbook + case，做到能复现、能定位、能解释、能加固。
-
-```
-
----
-
-## Week2 开团任务（你现在就可以做）
-你按这 3 个交付物推进就行：
-
-1) ✅ **补齐日志规范**（如果你已在 APIClient 有 logger，就把日志落到 `logs/` 文件 + 控制台）  
-2) ✅ **把失败分类写进 Playbook**（你刚才这份已经有了）  
-3) ✅ **跑一次故障演练**：故意制造一个失败（比如超时/断言），把 Case-01 填满
-
----

@@ -1,0 +1,21 @@
+# Optional: for Docker users. Local Postgres mode works without Docker.
+
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: autofw_postgres
+    restart: unless_stopped
+    environment:
+      POSTGRES_USER: autofw
+      POSTGRES_PASSWORD: autofw
+      POSTGRES_DB: autofw
+      TZ: Asia/Shanghai
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autofw -d autofw"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
