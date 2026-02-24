@@ -1,6 +1,7 @@
 import os
 import time
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -36,7 +37,7 @@ class PG:
         return psycopg2.connect(self.dsn, cursor_factory=RealDictCursor)
 
     def wait_ready(self, retries: int = 20, sleep: float = 0.5) -> None:
-        last_err: Optional[Exception] = None
+        last_err: Exception | None = None
         for _ in range(retries):
             try:
                 with self.connect() as conn:
@@ -51,15 +52,15 @@ class PG:
             f"Postgres not ready after retries. last_err={last_err!r}"
         ) from last_err
 
-    def execute(self, sql: str, params: Optional[Sequence[Any]] = None) -> int:
+    def execute(self, sql: str, params: Sequence[Any] | None = None) -> int:
         with self.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 return cur.rowcount
 
     def fetchone(
-        self, sql: str, params: Optional[Sequence[Any]] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, sql: str, params: Sequence[Any] | None = None
+    ) -> dict[str, Any] | None:
         with self.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
@@ -67,8 +68,8 @@ class PG:
                 return dict(row) if row else None
 
     def fetchall(
-        self, sql: str, params: Optional[Sequence[Any]] = None
-    ) -> List[Dict[str, Any]]:
+        self, sql: str, params: Sequence[Any] | None = None
+    ) -> list[dict[str, Any]]:
         with self.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
