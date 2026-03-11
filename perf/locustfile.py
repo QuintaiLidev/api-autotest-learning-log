@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 import os
-import random
 
-from locust import HttpUser, task, between
+from locust import HttpUser, between, task
 
 
 def _env(name:str, default: str) -> str:
