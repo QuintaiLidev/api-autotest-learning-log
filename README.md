@@ -170,3 +170,25 @@ Jobs:
 Artifacts:
 	•	reports-unit
 	•	reports-network
+
+```md
+### Run performance tests (Locust)
+
+Group A:
+```powershell
+.\scripts\run.ps1 -Mode perf -PerfGroup A
+
+Group B:
+
+.\scripts\run.ps1 -Mode perf -PerfGroup B
+
+Artifacts:
+	•	reports/locust.html
+	•	reports/locust_B.html
+	•	reports/locust*.csv
+
+Note:
+	•	Do not open the CSV files while Locust is running, or Windows may lock the files.
+
+---
+

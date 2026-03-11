@@ -6,6 +6,7 @@ PIP ?= pip
 PYTEST ?= pytest
 RUFF ?= ruff
 REPORTS_DIR ?= reports
+LOCUST ?= locust
 
 help:
 	@echo "Targets:"
@@ -31,6 +32,14 @@ db:
 network:
 	mkdir -p $(REPORTS_DIR)
 	$(PYTEST) -m "network or integration" -q --html=$(REPORTS_DIR)/network.html --self-contained-html
+
+perf:
+    mkdir -p $(REPORTS_DIR)
+    $(LOCUST) -f perf/locustfile.py --headless \
+        -u 10 -r 2 -t 60s \
+        --host https://postman-echo.com \
+        --csv $(REPORTS_DIR)/locust \
+        --html $(REPORTS_DIR)/locust.html
 
 test: unit
 ci: lint unit

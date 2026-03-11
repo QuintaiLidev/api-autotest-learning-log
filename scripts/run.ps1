@@ -1,12 +1,20 @@
 param(
-    [ValidateSet("lint","unit","network","all")]
+    [ValidateSet("lint","unit","network","all","perf")]
     [string]$Mode = "unit",
 
     [string]$Env = "",
 
     [string]$Marker = "",
 
-    [string]$Report = ""
+    [string]$Report = "",
+
+    # ------ perf only ------
+    [ValidateSet("A","B")]
+    [string]$PerfGroup = "A",
+
+    [string]$TargetHost = "https://postman-echo.com",
+
+    [string]$Duration = "60s"
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,6 +42,42 @@ function Run-Pytest([string]$expr, [string]$reportName) {
     pytest -m "$expr" -q --html="$html" --self-contained-html
 }
 
+function Run-Perf([string]$group, [string]$TargetHost, [string]$duration) {
+    if (-not (Test-Path ".\perf\locustfile.py")) {
+        throw "perf/locustfile.py not found. Please create .\perf\locustfile.py first"
+    }
+
+    # A/B 两组负载（按你现在的口径）
+    $users = 10
+    $spawn = 2
+    $csvPrefix = ".\reports\locust"
+    $html = ".\reports\locust.html"
+
+    if ($group -eq "B") {
+        $users = 20
+        $spawn = 4
+        $csvPrefix = ".\reports\locust_B"
+        $html = ".\reports\locust_B.html"
+    }
+
+    Write-Host "[run] locust group=$group users=$users spawn=$spawn duration=$duration host=$targetHost"
+    Write-Host "[run] report -> $html"
+
+    locust -f .\perf\locustfile.py `
+        --headless -u $users -r $spawn -t $duration `
+        --host $targetHost `
+        --csv $csvPrefix `
+        --html $html
+
+    Write-Host "[run] perf done -> $html"
+}
+
+# perf 模式优先（比卖你你误传 Marker 导致跑 pytest）
+if ($Mode -eq "perf") {
+    Run-Perf $PerfGroup $TargetHost $Duration
+    exit 0
+}
+
 # 优先级： Marker 手动指定 > Mode 默认策略
 if ($Marker -ne "") {
     $reportName = $(if ($Report -ne "") { $Report } else { "custom.html" })
@@ -43,7 +87,7 @@ if ($Marker -ne "") {
 
 switch ($Mode) {
     "lint"    { Run-Lint }
-    "unit"    { Run-Pytest "not (network or integration)" $(if ($Report -ne "") { $Report } else { "unit.html" }) }
+    "unit"    { Run-Pytest "not (network or integration or db)" $(if ($Report -ne "") { $Report } else { "unit.html" }) }
     "network" { Run-Pytest "network or integration" $(if ($Report -ne "") { $Report } else { "network.html" }) }
     "all"     { Run-Lint; Run-Pytest "not (network or integration)" "unit.html"; Run-Pytest "network or integration" "network.html" }
 }
