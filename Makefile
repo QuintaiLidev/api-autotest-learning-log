@@ -1,5 +1,5 @@
 # Makefile
-.PHONY: help lint unit network test ci clean
+.PHONY: help lint unit db network perf test ci clean
 
 PYTHON ?= python
 PIP ?= pip
@@ -14,9 +14,10 @@ help:
 	@echo "  make unit     - pytest (not network/integration/db) + html report"
 	@echo "  make db       - pytest db + report"
 	@echo "  make network  - pytest (network or integration) + html report"
+	@echo "  make perf     - locust performance test"
 	@echo "  make test     - alias of unit"
 	@echo "  make ci       - lint + unit"
-	@echo "  make clean    - remove reports/*.html"
+	@echo "  make clean    - remove reports/*.html and *.csv"
 
 lint:
 	$(RUFF) check .
@@ -34,15 +35,15 @@ network:
 	$(PYTEST) -m "network or integration" -q --html=$(REPORTS_DIR)/network.html --self-contained-html
 
 perf:
-    mkdir -p $(REPORTS_DIR)
-    $(LOCUST) -f perf/locustfile.py --headless \
-        -u 10 -r 2 -t 60s \
-        --host https://postman-echo.com \
-        --csv $(REPORTS_DIR)/locust \
-        --html $(REPORTS_DIR)/locust.html
+	mkdir -p $(REPORTS_DIR)
+	$(LOCUST) -f perf/locustfile.py --headless \
+		-u 10 -r 2 -t 60s \
+		--host https://postman-echo.com \
+		--csv $(REPORTS_DIR)/locust \
+		--html $(REPORTS_DIR)/locust.html
 
 test: unit
 ci: lint unit
 
 clean:
-	rm -f $(REPORTS_DIR)/*.html
+	rm -f $(REPORTS_DIR)/*.html $(REPORTS_DIR)/*.csv
