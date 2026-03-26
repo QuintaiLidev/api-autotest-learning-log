@@ -5,9 +5,9 @@ import requests
 
 from autofw.api_client import APIClient
 from autofw.services.demo_echo_service import EchoService
+from autofw.services.user_service import UserService
 from autofw.utils.config_loader import load_config
 from autofw.utils.db import PG
-from autofw.services.user_service import UserService
 
 PROXY_KEYS = [
     "HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",

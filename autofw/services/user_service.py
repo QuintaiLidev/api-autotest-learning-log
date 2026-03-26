@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from autofw.api_client import APIClient
 from autofw.utils.db import PG
@@ -45,7 +45,7 @@ class UserService:
             username: str,
             email: str,
             status: str = "active",
-    ) -> Tuple[Any, Optional[Dict[str, Any]]]:
+    ) -> tuple[Any, dict[str, Any] | None]:
         auth_client = self._auth_client(token)
 
         resp = auth_client.post(
@@ -86,7 +86,7 @@ class UserService:
             token: str,
             *,
             username: str
-    ) -> Tuple[Any, Optional[Dict[str, Any]]]:
+    ) -> tuple[Any, dict[str, Any] | None]:
         auth_client = self._auth_client(token)
 
         resp = auth_client.get(
@@ -109,7 +109,7 @@ class UserService:
             *,
             username: str,
             new_status: str,
-    ) -> Tuple[Any, Optional[Dict[str, Any]]]:
+    ) -> tuple[Any, dict[str, Any] | None]:
         auth_client = self._auth_client(token)
 
         resp = auth_client.post(
