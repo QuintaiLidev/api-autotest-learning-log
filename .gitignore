@@ -1,23 +1,21 @@
-# Python 编译缓存
-__pycache__/
-*.pyc
-
-# 虚拟环境
+# virtual env / IDE / caches
 venv/
-
-# PyCharm 配置
+.venv_ci/
 .idea/
-*.iml
-
-# pytest 缓存
+__pycache__/
 .pytest_cache/
+.ruff_cache/
 
-# 报告 & 日志
-reports/
-logs/
+# generated reports
+reports/*.html
+reports/*.csv
+
+# logs
+logs/*.log
+
+# temp / backup
+*.bak
+repo_tree.txt
 
 # 其他临时文件
 .DS_Store
-
-# 忽略备份文件
-*.bak
