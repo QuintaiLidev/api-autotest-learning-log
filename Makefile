@@ -32,7 +32,7 @@ db:
 
 network:
 	mkdir -p $(REPORTS_DIR)
-	$(PYTEST) -m "network or integration" -q --html=$(REPORTS_DIR)/network.html --self-contained-html
+	$(PYTEST) -m "(network or integration) and not db" -q --html=$(REPORTS_DIR)/network.html --self-contained-html
 
 perf:
 	mkdir -p $(REPORTS_DIR)

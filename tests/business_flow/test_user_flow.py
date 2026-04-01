@@ -1,6 +1,6 @@
 import pytest
 
-pytestmark = [pytest.mark.db, pytest.mark.network]
+pytestmark = pytest.mark.db
 
 
 def test_create_and_query_user_flow(user_service, pg_clean_users):
